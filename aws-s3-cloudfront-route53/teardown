@@ -1,0 +1,103 @@
+#!/bin/bash
+set -e
+
+APP=""
+STAGE="dev"
+DIRECTORY=""
+ROOT_DOMAIN=""
+DOMAIN_NAME=""
+AWS_DEPLOYMENT_REGION=""
+
+# Parsing options
+while [ -n "$1" ]; do
+    case "$1" in
+    -n|--name)
+      APP="$2"
+      shift
+      ;;
+    -s|--stage)
+      STAGE="$2"
+      shift
+      ;;
+    -r|--region)
+      AWS_DEPLOYMENT_REGION="$2"
+      shift
+      ;;
+    -d|--dir)
+      DIRECTORY="$2"
+      shift
+      ;;
+    --root-domain)
+      ROOT_DOMAIN="$2"
+      shift
+      ;;
+    --domain-name)
+      DOMAIN_NAME="$2"
+      shift
+      ;;
+    *)
+      echo "Option $1 not recognized"
+      echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--domain-name <domain_name>] [--root-domain <root_domain>]" >&2
+      exit 1;
+      ;;
+    esac
+    shift
+done
+
+# Validate parameters
+if [[ "$APP" == "" ]]; then
+    echo "App name is not set."
+    echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--domain-name <domain_name>] [--root-domain <root_domain>]" >&2
+    exit 1;
+fi
+
+if [[ "$AWS_DEPLOYMENT_REGION" == "" ]]; then
+    echo "Deployed region is not set."
+    echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--domain-name <domain_name>] [--root-domain <root_domain>]" >&2
+    exit 1;
+fi
+
+if [[ ! -d "$DIRECTORY" ]]; then
+    echo "Directory doest not exist."
+    echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--root-domain <root_domain>] [--domain-name <domain_name>]" >&2
+    exit 1;
+fi
+
+if [[ "$ROOT_DOMAIN" == "" ]]; then
+    echo "Root domain is not set."
+    echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--root-domain <root_domain>] [--domain-name <domain_name>]" >&2
+    exit 1;
+fi
+
+if [[ "$DOMAIN_NAME" == "" ]]; then
+    echo "Domain name is not set."
+    echo "script usage: $(basename $0) [-n <name>] [-s <stage>] [-r <region>] [-d <directory>] [--root-domain <root_domain>] [--domain-name <domain_name>]" >&2
+    exit 1;
+fi
+
+# Set up shared storage for Terraform state file
+DEPLOYMENT_STATE_BUCKET = $APP-deployment-state-bucket--stage-$STAGE
+LOCKING_STATE_TABLE= $APP-lock-state-table--stage-$STAGE
+
+# Destroy resources
+echo "Destroying resource ..."
+terraform destroy \
+  -auto-approve \
+  -var "aws_region=$AWS_DEPLOYMENT_REGION" \
+  -var "stage=$STAGE" \
+  -var "app=$APP" \
+  -var "root_domain=$ROOT_DOMAIN" \
+  -var "domain_name=$DOMAIN_NAME" \
+  -var "directory=$DIRECTORY" \
+  provision
+echo "Done."
+
+# Destroy shared storage
+echo "Destroying shared storage ..."
+terraform destroy \
+    -auto-approve \
+    -var "aws_region=$AWS_DEPLOYMENT_REGION" \
+    -var "stage=$STAGE" \
+    -var "app=$APP"
+    pre-provision
+echo "Done."
